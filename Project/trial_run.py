@@ -73,3 +73,65 @@ class DiscriminatorNetwork(torch.nn.Module):
         return x
 
 discrimator = DiscriminatorNetwork()
+print("Got to this point, created the Discriminator Network")
+
+#Function to convert images into feature vectors
+def images_to_vectors(images):
+    return images.view(images.size(0), 784)
+
+#Function to convert feature vectors into images
+def vectors_to_images(vectors):
+    return vectors.view(vectors.size(0), 1, 28, 28)
+
+# GENERATOR NUERAL NET
+# THIS WILL TRY CREATE IMAGES THAT CAN TRICK THE DISCRIMINATOR INTO THINKING THAT IMAGE IS REAL WHEN IT IS ACTUALLY SYNTHESIZED
+# THE GOAL IS TO MAXIMIZE THE PROBABILITY OF THE GENERATOR'S OUTPUT PASSING AS REAL
+# AND MINIMIZE THE PROBABILITY OF THE DISCRIMINATOR'S GUESS BEING FAKE
+class GeneratorNetwork(torch.nn.Module):
+    """
+    We will convert a latent variable vector into a 784-sized feature vector (28x28 pixels)
+    using a neural network that contains 3 layers.
+    The main purpose of this network is to learn how to create realistic hand-written digits.
+    Each layer contains a Linear Function that will perform a Linear transformation to the incoming feature vector: y=xA^T + b
+    They will also contain a LeakyReLU non-linear activation function.
+    A TanH (Hyperbolic Tangent) function is then used on the final feature vector to map the values into a range between (-1,1).
+    That is the same range that the MNIST images are bounded on.
+    """
+    def __init__(self):
+        super(GeneratorNetwork, self).__init__()
+        n_features = 100
+        n_out = 784
+
+        self.hiddenLayer0 = nn.Sequential(
+            nn.Linear(n_features, 256),
+            nn.LeakyReLU(0.2)
+        )
+
+        self.hiddenLayer1 = nn.Sequential(
+            nn.Linear(256, 512),
+            nn.LeakyReLU(0.2)
+        )
+
+        self.hiddenLayer2 = nn.Sequential(
+            nn.Linear(512, 1024),
+            nn.LeakyReLU(0.2)
+        )
+
+        self.outLayer = nn.Sequential(
+            nn.Linear(1024, n_out),
+            nn.Tanh()
+        )
+    #Function used to run the latent variable vector through the 3-layer network and return the resulting feature vector
+    def forward(self, x):
+        x = self.hiddenLayer0(x)
+        x = self.hiddenLayer1(x)
+        x = self.hiddenLayer2(x)
+        x = self.outLayer(x)
+        return x
+
+generator = GeneratorNetwork()
+print("Got to this point, created the Generator Network")
+
+# Function for creating random noise in the shape of a 1-D vector
+def noise(size_of_noise):
+    return Variable(torch.randn(size_of_noise, 100))
