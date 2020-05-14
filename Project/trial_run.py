@@ -72,7 +72,7 @@ class DiscriminatorNetwork(torch.nn.Module):
         x = self.outLayer(x)
         return x
 
-discrimator = DiscriminatorNetwork()
+discriminator = DiscriminatorNetwork()
 print("Got to this point, created the Discriminator Network")
 
 #Function to convert images into feature vectors
@@ -135,3 +135,71 @@ print("Got to this point, created the Generator Network")
 # Function for creating random noise in the shape of a 1-D vector
 def noise(size_of_noise):
     return Variable(torch.randn(size_of_noise, 100))
+
+# Here we use the Adam Optimizer from PyTorch to optimize both networks
+# The lr variable is the learning rate
+discriminatorOptimizer = optim.Adam(discriminator.parameters(), lr=0.0002)
+generatorOptimizer = optim.Adam(generator.parameters(), lr=0.0002)
+
+# The Loss Function we will be using is the Binary Cross Entropy Loss Function (BCEL)
+# Will resemble the logarithmic loss for both the Generator and Discriminator.
+# We will take the mean of the loss calculated for each minibatch.
+# Also, since we want to maximize log(D(G(z))) and PyTorch and many other ML libraries only minimize,
+# maximizing log(D(G(z))) is equivalent to minimizing the negative, and since BCEL has a negative sign,
+# we don't have to worry about the sign.
+loss = nn.BCELoss()
+
+# Since we will always recognize real-images as ones and synthesized-images as zeros, we use the following functions 
+# to return a target containing only ones and zeros
+def ones(size):
+    data = Variable(torch.ones(size, 1))
+    return data
+
+def zeros(size):
+    data = Variable(torch.zeros(size, 1))
+    return data
+
+# We now create the method for training the Discriminator network. We will get the total mini-batch loss from summing the 
+# error for identifying real-images and error for identifying synthesized-images together
+def train_discriminator(optimizer, real_data, synthesized_data):
+    N = real_data.size(0)
+    # Zero out the gradients of the optimizer function
+    optimizer.zero_grad()
+
+    # Train on real data
+    predict_real = discriminator(real_data)
+    error_real = loss(predict_real, ones(N))
+    # Backpropogate
+    error_real.backward()
+
+    # Train on synthesized data
+    predict_synthesized = discriminator(synthesized_data)
+    error_synthesized = loss(predict_synthesized, zeros(N))
+    # Backpropogate
+    error_synthesized.backward()
+
+    # Update the weights in the optimizer with the gradients
+    optimizer.step()
+
+    # Return the error and predictions for real and synthesized
+    return error_real + error_synthesized, predict_real, predict_synthesized
+
+# We now create the method for training the Generator network. We will get the loss from checking the
+# prediction from the discriminator and inputting that into the loss function to see if it predicted the images were real.
+def train_generator(optimizer, synthesized_data):
+    N = synthesized_data.size(0)
+    # Zero out the gradients of the optimizer function
+    optimizer.zero_grad()
+
+    # Sample the noise and generate synthesized data
+    prediction = discriminator(synthesized_data)
+
+    error = loss(prediction, ones(N))
+    # Backpropogate
+    error.backward()
+
+    # Update the weights in the optimizer with the gradients
+    optimizer.step()
+
+    #Return the error
+    return error
