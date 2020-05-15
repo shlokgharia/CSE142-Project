@@ -3,13 +3,13 @@ from torch import nn, optim
 from torch.autograd.variable import Variable
 from torchvision import transforms, datasets
 
-# from utils import Logger
+from log_helper import Logger
 
 #Function loads MNIST_data
 def mnist_data():
     compose = transforms.Compose(
         [transforms.ToTensor(),
-         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
+         transforms.Normalize((.5,), (.5,))
         ]
     )
     out_dir = './dataset'
@@ -203,3 +203,51 @@ def train_generator(optimizer, synthesized_data):
 
     #Return the error
     return error
+
+# This test noise will be used to visualize the training process as the GAN learns
+num_test_samples = 16
+test_noise = noise(num_test_samples)
+
+#Logger Instance
+logger = Logger(model_name='VGAN', data_name='MNIST')
+
+
+# Total number of epochs to train
+num_epochs = 5
+
+#This is the training process
+for epoch in range(num_epochs):
+        for n_batch, (real_batch,_) in enumerate(loaded_data_iteratable):
+            N = real_batch.size(0)
+            """
+            Training Discriminator
+            """
+            real_data = Variable(images_to_vectors(real_batch))
+
+            # Generating synthesized data and detach so they are not calculated for generator
+            synthesized_data = generator(noise(N)).detach()
+
+            discriminator_error, discriminator_pred_real, discriminator_pred_synthesized = train_discriminator(discriminatorOptimizer, real_data, synthesized_data)
+
+            """
+            Training Generator
+            """
+            
+            #Generating synthesized data
+            synthesized_data = generator(noise(N))
+
+            generator_error = train_generator(generatorOptimizer, synthesized_data)
+
+            # Log batch error
+            logger.log(discriminator_error, generator_error, epoch, n_batch, num_batches)
+
+            # Display progress every 10 batches
+            if (n_batch % 10) == 0:
+                test_images = vectors_to_images(generator(test_noise))
+                test_images = test_images.data
+
+                logger.log_images(test_images, num_test_samples, epoch, n_batch, num_batches)
+
+                #Display status logs
+                logger.display_status(epoch, num_epochs, n_batch, num_batches, discriminator_error, generator_error, discriminator_pred_real, discriminator_pred_synthesized)
+
