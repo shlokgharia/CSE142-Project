@@ -2,6 +2,8 @@ import torch
 from torch import nn, optim
 from torch.autograd.variable import Variable
 from torchvision import transforms, datasets
+import matplotlib.pyplot as plt
+import numpy as np
 
 from log_helper import Logger
 
@@ -211,9 +213,8 @@ test_noise = noise(num_test_samples)
 #Logger Instance
 logger = Logger(model_name='VGAN', data_name='MNIST')
 
-
 # Total number of epochs to train
-num_epochs = 5
+num_epochs = 10
 
 #This is the training process
 for epoch in range(num_epochs):
@@ -241,13 +242,17 @@ for epoch in range(num_epochs):
             # Log batch error
             logger.log(discriminator_error, generator_error, epoch, n_batch, num_batches)
 
-            # Display progress every 10 batches
-            if (n_batch % 10) == 0:
+            # Display progress every 100 batches
+            if (n_batch % 100) == 0:
                 test_images = vectors_to_images(generator(test_noise))
                 test_images = test_images.data
 
                 logger.log_images(test_images, num_test_samples, epoch, n_batch, num_batches)
 
-                #Display status logs
+                # Display status logs
                 logger.display_status(epoch, num_epochs, n_batch, num_batches, discriminator_error, generator_error, discriminator_pred_real, discriminator_pred_synthesized)
+
+"""
+IMAGES ARE SAVED IN THE data FOLDER
+"""
 
