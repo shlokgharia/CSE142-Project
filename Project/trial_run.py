@@ -6,16 +6,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from log_helper import Logger
+"""
 
+3577.836 seconds to run 240 Batches
+16780.817 seconds to run 1020 Batches
+4896.34 seconds to run 280 batches
+"""
 #Function loads MNIST_data
 def mnist_data():
     compose = transforms.Compose(
         [transforms.ToTensor(),
-         transforms.Normalize((.5,), (.5,))
+         transforms.Normalize((.5, .5, .5), (.5, .5, .5))
         ]
     )
-    out_dir = './dataset'
-    return datasets.MNIST(root=out_dir, train=True, transform=compose, download=True)
+    out_dir = '/Users/shlokgharia/Documents/dataset_celeb_images'
+    
+    return datasets.ImageFolder(root=out_dir, transform=compose)
+    # return datasets.ImageFolder(root=out_dir)
+    # return datasets.MNIST(root=out_dir, train=True, transform=compose, download=True)
 
 #Loads MNIST_data into data
 data = mnist_data()
@@ -24,7 +32,7 @@ data = mnist_data()
 loaded_data_iteratable = torch.utils.data.DataLoader(data, batch_size=100, shuffle=True)
 
 #Number of batches
-num_batches = len(loaded_data_iteratable)
+num_batches = len(loaded_data_iteratable)/2
 #print(num_batches) #Should show 600
 
 # DISCCRIMINATOR NUERAL NET
@@ -40,7 +48,7 @@ class DiscriminatorNetwork(torch.nn.Module):
     """
     def __init__(self):
         super(DiscriminatorNetwork, self).__init__()
-        n_features = 784
+        n_features = 116412
         n_out = 1
 
         self.hiddenLayer0 = nn.Sequential(
@@ -76,14 +84,15 @@ class DiscriminatorNetwork(torch.nn.Module):
 
 discriminator = DiscriminatorNetwork()
 print("Got to this point, created the Discriminator Network")
-
+# 38804
+# 11641200
 #Function to convert images into feature vectors
 def images_to_vectors(images):
-    return images.view(images.size(0), 784)
+    return images.view(images.size(0), 116412)
 
 #Function to convert feature vectors into images
 def vectors_to_images(vectors):
-    return vectors.view(vectors.size(0), 1, 28, 28)
+    return vectors.view(vectors.size(0), 3, 218, 178)
 
 # GENERATOR NUERAL NET
 # THIS WILL TRY CREATE IMAGES THAT CAN TRICK THE DISCRIMINATOR INTO THINKING THAT IMAGE IS REAL WHEN IT IS ACTUALLY SYNTHESIZED
@@ -102,7 +111,7 @@ class GeneratorNetwork(torch.nn.Module):
     def __init__(self):
         super(GeneratorNetwork, self).__init__()
         n_features = 100
-        n_out = 784
+        n_out = 116412
 
         self.hiddenLayer0 = nn.Sequential(
             nn.Linear(n_features, 256),
@@ -206,6 +215,21 @@ def train_generator(optimizer, synthesized_data):
     #Return the error
     return error
 
+# LOADS THE GAN NETWORK CHECKPOINT CREATED FROM PREVIOUS ITERATIONS
+# ONLY USE THIS SECTION OF CODE IF THERE IS ALREADY A CHECKPOINT FROM BEFORE
+checkpoint = torch.load("/Users/shlokgharia/Documents/Face_Creation/GAN_Network/GAN.tar")
+discriminator.load_state_dict(checkpoint['modelA_state_dict'])
+generator.load_state_dict(checkpoint['modelB_state_dict'])
+discriminatorOptimizer.load_state_dict(checkpoint['optimizerA_state_dict'])
+generatorOptimizer.load_state_dict(checkpoint['optimizerB_state_dict'])
+# loss.load_state_dict(checkpoint['loss'])
+
+discriminator.train()
+generator.train()
+
+print("LOADED CHECKPOINT")
+
+
 # This test noise will be used to visualize the training process as the GAN learns
 num_test_samples = 16
 test_noise = noise(num_test_samples)
@@ -214,7 +238,7 @@ test_noise = noise(num_test_samples)
 logger = Logger(model_name='VGAN', data_name='MNIST')
 
 # Total number of epochs to train
-num_epochs = 10
+num_epochs = 3
 
 #This is the training process
 for epoch in range(num_epochs):
@@ -242,8 +266,17 @@ for epoch in range(num_epochs):
             # Log batch error
             logger.log(discriminator_error, generator_error, epoch, n_batch, num_batches)
 
-            # Display progress every 100 batches
-            if (n_batch % 100) == 0:
+            # SAVING GAN NETWORK TO A FILE SO WE CAN HAVE A CHECKPOINT A START FROM A PREVIOUS VERSION
+            # INSTEAD OF STARTING FROM SCRATCH EVERY TIME
+            torch.save({'modelA_state_dict': discriminator.state_dict(),
+                        'modelB_state_dict': generator.state_dict(),
+                        'optimizerA_state_dict': discriminatorOptimizer.state_dict(),
+                        'optimizerB_state_dict': generatorOptimizer.state_dict(),
+                        'loss': loss},
+                        "/Users/shlokgharia/Documents/Face_Creation/GAN_Network/GAN.tar")
+
+            # Display progress every 20 batches
+            if (n_batch % 20) == 0:
                 test_images = vectors_to_images(generator(test_noise))
                 test_images = test_images.data
 
